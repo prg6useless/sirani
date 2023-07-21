@@ -25,6 +25,7 @@ public:
     explicit homescreen(QWidget *parent = nullptr);
     QString current_user;
     QString current_mood;
+    QString mood_resource;
     ~homescreen();
 
 private slots:
@@ -71,6 +72,10 @@ private slots:
     void on_DailyGoalsTable_doubleClicked(const QModelIndex &index);
 
 
+
+    void on_LogoutButton_clicked();
+
+    void on_testbutton_clicked();
 
 private:
     Ui::homescreen *ui;

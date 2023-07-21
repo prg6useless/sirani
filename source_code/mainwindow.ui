@@ -34,6 +34,10 @@
   <property name="windowTitle">
    <string>Sirani</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="resource.qrc">
+    <normaloff>:/IMG/sirani-03-03.png</normaloff>:/IMG/sirani-03-03.png</iconset>
+  </property>
   <property name="styleSheet">
    <string notr="true">#centralwidget{
 background-repeat: repeat-y;
@@ -127,6 +131,7 @@ background-color: #FEFAF1;
          </property>
          <property name="font">
           <font>
+           <family>FONTSPRING DEMO - Pontiac Black</family>
            <pointsize>30</pointsize>
            <italic>false</italic>
            <bold>true</bold>
@@ -237,7 +242,7 @@ color: #3C465F;</string>
 border-radius: 4px;</string>
          </property>
          <property name="echoMode">
-          <enum>QLineEdit::PasswordEchoOnEdit</enum>
+          <enum>QLineEdit::Password</enum>
          </property>
         </widget>
        </item>
@@ -273,10 +278,14 @@ border-radius: 4px;</string>
          </property>
          <property name="font">
           <font>
+           <family>Foco</family>
            <pointsize>12</pointsize>
            <italic>false</italic>
            <bold>false</bold>
           </font>
+         </property>
+         <property name="cursor">
+          <cursorShape>PointingHandCursor</cursorShape>
          </property>
          <property name="autoFillBackground">
           <bool>false</bool>
@@ -335,10 +344,14 @@ color: #3C465F;</string>
         <widget class="QPushButton" name="SignUpButton">
          <property name="font">
           <font>
+           <family>Foco</family>
            <pointsize>13</pointsize>
            <italic>false</italic>
            <bold>false</bold>
           </font>
+         </property>
+         <property name="cursor">
+          <cursorShape>PointingHandCursor</cursorShape>
          </property>
          <property name="styleSheet">
           <string notr="true">#SignUpButton{text-align: left;
@@ -390,6 +403,8 @@ color: #FFB391;}</string>
    </layout>
   </widget>
  </widget>
- <resources/>
+ <resources>
+  <include location="resource.qrc"/>
+ </resources>
  <connections/>
 </ui>

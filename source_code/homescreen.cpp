@@ -1,9 +1,14 @@
 #include "homescreen.h"
+#include "mainwindow.h"
 #include "ui_homescreen.h"
 #include<QTimer>
 #include<QDateTime>
 #include <QDebug>
 #include<QMessageBox>
+#include <QUrl>
+#include<QDesktopServices>
+#include <ctime>
+#include <cstdlib>
 
 homescreen::homescreen(QWidget *parent) :
     QMainWindow(parent),
@@ -16,7 +21,7 @@ homescreen::homescreen(QWidget *parent) :
     connect(datetime,SIGNAL(timeout()),this,SLOT(Date_Time()));
     datetime -> start();
 
-    QSqlQuery qry;
+    QSqlQuery qry,qry1;
     qry.prepare("select username from current_user");
     qry.exec();
     qry.next();
@@ -30,12 +35,23 @@ homescreen::homescreen(QWidget *parent) :
     ui -> comboBox -> addItem("Monthly");
     ui -> comboBox -> addItem("Weekly");
     ui -> comboBox -> addItem("Daily");
+    srand(time(0));
+
+    int val = (rand() % 8) + 1;
+
+    qry1.prepare("select * from quotes limit 1 offset :oval");
+    qry1.bindValue(":oval",val);
+    qry1.exec();
+    qry1.first();
+
+    QString quote = qry1.value(1).toString();
+    ui -> label_6 -> setText(quote);
 }
 
 void homescreen :: Date_Time()
 {
     QDateTime clock = QDateTime::currentDateTime();
-    QString clock_text=clock.toString("ddd - dd / MM / yyyy  \n\nh : m : ss ap");
+    QString clock_text=clock.toString("ddd - dd / MM / yyyy  \n\nh : mm : ss ap");
     ui -> Clock -> setText(clock_text);
 }
 
@@ -85,7 +101,7 @@ void homescreen :: showsleep_dashboard(){
     chart -> addSeries(series);
     chart -> legend() -> hide();
     chart -> setTitle("Sleep record");
-    chart -> setTheme(QChart::ChartThemeHighContrast);
+    chart -> setTheme(QChart::ChartThemeBrownSand);
 
     QDateTimeAxis *axisX = new QDateTimeAxis;
     axisX->setFormat("dd MMM");
@@ -105,6 +121,8 @@ void homescreen :: showsleep_dashboard(){
     chart -> setAnimationOptions(QChart::GridAxisAnimations);
     chart -> setAnimationOptions(QChart::SeriesAnimations);
     chart -> setAnimationEasingCurve(QEasingCurve::OutCubic);
+    chart -> setPlotArea(QRectF(50,30,550,120));
+    chart -> setMargins(QMargins(0, 0, 0, 0));
 
     QChartView *chartView = new QChartView(chart);
     chartView -> setRenderHint(QPainter::Antialiasing);
@@ -149,7 +167,7 @@ void homescreen :: showsleep_sleeptracker(){
     chart -> addSeries(series);
     chart -> legend() -> hide();
     chart -> setTitle("Sleep record");
-    chart -> setTheme(QChart::ChartThemeHighContrast);
+    chart -> setTheme(QChart::ChartThemeBrownSand);
 
     QDateTimeAxis *axisX = new QDateTimeAxis;
     axisX->setFormat("dd MMM");
@@ -169,6 +187,9 @@ void homescreen :: showsleep_sleeptracker(){
     chart -> setAnimationOptions(QChart::GridAxisAnimations);
     chart -> setAnimationOptions(QChart::SeriesAnimations);
     chart -> setAnimationEasingCurve(QEasingCurve::OutCubic);
+    chart -> setPlotArea(QRectF(50,40,525,245));
+    chart->setMargins(QMargins(0, 0, 0, 0));
+
 
     QChartView *chartView = new QChartView(chart);
     chartView -> setRenderHint(QPainter::Antialiasing);
@@ -176,22 +197,38 @@ void homescreen :: showsleep_sleeptracker(){
 }
 
 void homescreen :: showmood_moodtracker(){
-    QSqlQuery qry;
+    QSqlQuery qry,qry1;
     QString mood_table = current_user + "_mood";
+
+    qry1.prepare("select count(*) from '"+mood_table+"'");
+    qry1.exec();
+    qry1.first();
+    int noofrows = qry1.value(0).toInt();
+
+    int offset = noofrows - 7;
+
     int happy,sad,calm,angry;
-    qry.prepare("select count(*) from '"+mood_table+"' where mood = 'Happy'");
+
+    qry.prepare("select count(*) from (select * from '"+mood_table+"' limit 7 offset :offsetvalue) where mood = 'Happy'");
+    qry.bindValue(":offsetvalue", offset);
     qry.exec();
     qry.next();
     happy = qry.value(0).toInt();
-    qry.prepare("select count(*) from '"+mood_table+"' where mood = 'Sad'");
+
+    qry.prepare("select count(*) from (select * from '"+mood_table+"' limit 7 offset :offsetvalue) where mood = 'Sad'");
+    qry.bindValue(":offsetvalue", offset);
     qry.exec();
     qry.next();
     sad = qry.value(0).toInt();
-    qry.prepare("select count(*) from '"+mood_table+"' where mood = 'Calm'");
+
+    qry.prepare("select count(*) from (select * from '"+mood_table+"' limit 7 offset :offsetvalue) where mood = 'Calm'");
+    qry.bindValue(":offsetvalue", offset);
     qry.exec();
     qry.next();
     calm = qry.value(0).toInt();
-    qry.prepare("select count(*) from '"+mood_table+"' where mood = 'Angry'");
+
+    qry.prepare("select count(*) from (select * from '"+mood_table+"' limit 7 offset :offsetvalue) where mood = 'Angry'");
+    qry.bindValue(":offsetvalue", offset);
     qry.exec();
     qry.next();
     angry = qry.value(0).toInt();
@@ -215,7 +252,12 @@ void homescreen :: showmood_moodtracker(){
     QChart *chart = new QChart();
     chart -> addSeries(series);
     chart-> setTitle("Mood frequency");
+
     chart -> setAnimationOptions(QChart::SeriesAnimations);
+    chart -> setPlotArea(QRectF(40,40,550,160));
+     chart->setMargins(QMargins(0, 0, 0, 0));
+    chart->legend()->setVisible(false);
+
 
     QStringList categories;
     categories << "Happy" << "Sad" << "Calm" << "Angry";
@@ -230,50 +272,75 @@ void homescreen :: showmood_moodtracker(){
 
 void homescreen::on_MoodTrackerButton_clicked()
 {
-    showmood_moodtracker();
-    QSqlQuery qry;
+    QSqlQuery qry,qry1;
     QString mood_table = current_user + "_mood";
+    qry1.prepare("select count(*) from '"+mood_table+"'");
+    qry1.exec();
+    qry1.first();
+    int noofrows = qry1.value(0).toInt();
+    int offset = noofrows - 7;
+
+    showmood_moodtracker();
+
     int happy,sad,calm,angry;
-    qry.prepare("select count(*) from '"+mood_table+"' where mood = 'Happy'");
+
+    qry.prepare("select count(*) from (select * from '"+mood_table+"' limit 7 offset :offsetval) where mood = 'Happy'");
+    qry.bindValue(":offsetval", offset);
     qry.exec();
     qry.next();
     happy = qry.value(0).toInt();
-    qry.prepare("select count(*) from '"+mood_table+"' where mood = 'Sad'");
+    qDebug() << happy;
+
+    qry.prepare("select count(*) from (select * from '"+mood_table+"' limit 7 offset :offsetval) where mood = 'Sad'");
+    qry.bindValue(":offsetval", offset);
     qry.exec();
     qry.next();
     sad = qry.value(0).toInt();
-    qry.prepare("select count(*) from '"+mood_table+"' where mood = 'Calm'");
+    qDebug() << sad;
+
+    qry.prepare("select count(*) from (select * from '"+mood_table+"' limit 7 offset :offsetval) where mood = 'Calm'");
+    qry.bindValue(":offsetval", offset);
     qry.exec();
     qry.next();
     calm = qry.value(0).toInt();
-    qry.prepare("select count(*) from '"+mood_table+"' where mood = 'Angry'");
+    qDebug() << calm;
+
+    qry.prepare("select count(*) from (select * from '"+mood_table+"' limit 7 offset :offsetval) where mood = 'Angry'");
+    qry.bindValue(":offsetval", offset);
     qry.exec();
     qry.next();
     angry = qry.value(0).toInt();
+    qDebug() << angry;
+
     ui -> stackedWidget -> setCurrentIndex(2);
 
     if(happy>sad && happy>calm && happy>angry){
-        current_mood = "Happy";
+        current_mood = "H A P P Y";
+        mood_resource = "- Practice mindfulness\n- Enjoy some green time\n- List something you are grateful about";
     }
 
     else if(sad>happy && sad>calm && sad>angry){
-        current_mood = "Sad";
+        current_mood = "S A D";
+        mood_resource = "- Engage in a hobby\n- Do something you enjoy\n- Focus on the positive";
     }
 
     else if(calm>sad && happy<calm && calm>angry){
-        current_mood = "Calm";
+        current_mood = "C A L M";
+        mood_resource = "- Be ready for challenges\n- Create an action plan\n- Write in a journal";
     }
 
     else if(angry>sad && angry>calm && happy<angry){
-        current_mood = "Angry";
+        current_mood = "A N G R Y";
+        mood_resource = "- Use humor to release tension\n- Take a timeout\n- Identify possible solutions";
     }
 
     else{
         current_mood = "Mixed Feelings";
+        mood_resource = "- Practice Mindfulness\n- Focus on the positive\n- Write in a journal";
     }
 
     ui -> AverageMood -> setText(current_mood);
-
+    ui -> MoodResource -> setText(mood_resource);
 
 }
 
@@ -296,6 +363,7 @@ void homescreen::on_GoalsButton_clicked()
     modal -> setQuery(*qry);
     ui -> YearlyGoalsTable -> setModel(modal);
     ui -> YearlyGoalsTable -> resizeColumnsToContents();
+    ui->YearlyGoalsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     ui -> YearlyGoalsTable -> resizeRowsToContents();
 
     QSqlQueryModel *modal1 = new QSqlQueryModel();
@@ -305,6 +373,7 @@ void homescreen::on_GoalsButton_clicked()
     modal1 -> setQuery(*qry1);
     ui -> WeeklyGoalsTable -> setModel(modal1);
     ui -> WeeklyGoalsTable -> resizeColumnsToContents();
+    ui->WeeklyGoalsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     ui -> WeeklyGoalsTable -> resizeRowsToContents();
 
     QSqlQueryModel *modal2 = new QSqlQueryModel();
@@ -313,6 +382,7 @@ void homescreen::on_GoalsButton_clicked()
     qry2 -> exec();
     modal2 -> setQuery(*qry2);
     ui -> MonthlyGoalsTable -> setModel(modal2);
+    ui->MonthlyGoalsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     ui -> MonthlyGoalsTable -> resizeColumnsToContents();
     ui -> MonthlyGoalsTable -> resizeRowsToContents();
 
@@ -322,6 +392,7 @@ void homescreen::on_GoalsButton_clicked()
     qry3 -> exec();
     modal3 -> setQuery(*qry3);
     ui -> DailyGoalsTable -> setModel(modal3);
+    ui->DailyGoalsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     ui -> DailyGoalsTable -> resizeColumnsToContents();
     ui -> DailyGoalsTable -> resizeRowsToContents();
 
@@ -351,16 +422,61 @@ void homescreen::on_SleepTrackerButton_clicked()
 void homescreen::on_SleepTrackerSubmitButton_clicked()
 {
     QString sleep_table = current_user + "_sleep";
-    QSqlQuery qry1,qry2;
+    QSqlQuery qry,qry1,qry2,qry3;
     int hours = ui -> SleepEnterArea -> text().toInt();
+    int count=0;
+    QString current_date, last_date;
+    QStringList lastdatelist;
+
     QDateTime clock = QDateTime::currentDateTime();
     clock = clock.addDays(-1);
-    QString clock_text=clock.toString("ddd dd MM yyyy h m ss ap");
+    QString clock_text=clock.toString("ddd dd MM yyyy hh mm ss ap");
+    current_date = clock.toString("ddMMyyyy");
+
+
+    if (hours==NULL) {
+            QMessageBox::information (this,"Message","Please enter value to submit.");
+    }
+
+
+    else {
+    qry.prepare("select count(*) from '"+sleep_table+"'");
+    qry.exec();
+    qry.next();
+    count = qry.value(0).toInt();
+
+    if (count == 0){
     qry1.prepare("INSERT INTO '"+sleep_table+"' (date, hours) "
                  "VALUES (:dates, :hour)");
     qry1.bindValue(":dates", clock_text);
     qry1.bindValue(":hour", hours);
     qry1.exec();
+    }
+
+    else {
+        int off = count - 1;
+        qry3.prepare("SELECT * FROM '"+sleep_table+"' LIMIT 1 OFFSET :offsetvalue");
+        qry3.bindValue(":offsetvalue",off);
+        qry3.exec();
+        qry3.next();
+
+        lastdatelist =  qry3.value(0).toString().split(" ").mid(1,3);
+        last_date = lastdatelist[0] + lastdatelist[1] + lastdatelist[2];
+
+
+        if (current_date != last_date){
+            qry2.prepare("INSERT INTO '"+sleep_table+"' (date, hours) "
+                         "VALUES (:dates, :hour)");
+            qry2.bindValue(":dates", clock_text);
+            qry2.bindValue(":hour", hours);
+            qry2.exec();
+        }
+        else{
+            QMessageBox::information(this,"Message","You cannot have two nights in a day.",QMessageBox::Ok);
+        }
+    }
+    }
+    ui -> SleepEnterArea -> setText("");
     on_SleepTrackerButton_clicked();
 }
 
@@ -377,33 +493,49 @@ void homescreen::on_SleepTrackerRemoveAllDataButton_clicked()
 void homescreen::on_HappyButton_clicked()
 {
     showmood_moodtracker();
+    int count;
+    QSqlQuery qry,qry1,qry2,qry3;
+
     QString mood_table = current_user + "_mood";
     QString current_date, last_date;
     QStringList lastdatelist;
-    QSqlQuery qry1,qry2;
+
     QDateTime clock = QDateTime::currentDateTime();
-    QString clock_text=clock.toString("ddd dd MM yyyy h m ss ap");
+    QString clock_text=clock.toString("ddd dd MM yyyy hh mm ss ap");
     current_date = clock.toString("ddMMyyyy");
 
-    qry2.prepare("SELECT * FROM '"+mood_table+"' ORDER BY date DESC LIMIT 1");
-    qry2.exec();
-    qry2.next();
+    qry.prepare("select count(*) from '"+mood_table+"'");
+    qry.exec();
+    qry.next();
+    count = qry.value(0).toInt();
 
-    lastdatelist =  qry2.value(0).toString().split(" ").mid(1,3);
-    last_date = lastdatelist[0] + lastdatelist[1] + lastdatelist[2];
+    if (count!=0){
+        int off = count - 1;
+        qry3.prepare("SELECT * FROM '"+mood_table+"' LIMIT 1 OFFSET :offsetvalue");
+        qry3.bindValue(":offsetvalue",off);
+        qry3.exec();
+        qry3.next();
 
-    qDebug() << lastdatelist << last_date << current_date;
+        lastdatelist =  qry3.value(0).toString().split(" ").mid(1,3);
+        last_date = lastdatelist[0] + lastdatelist[1] + lastdatelist[2];
 
-    if (current_date != last_date){
-    qry1.prepare("INSERT INTO '"+mood_table+"' (date, mood) "
-                 "VALUES (:dates, :mood)");
-    qry1.bindValue(":dates", clock_text);
-    qry1.bindValue(":mood", "Happy");
-    qry1.next();
-    qry1.exec();
+        if (current_date != last_date){
+        qry2.prepare("INSERT INTO '"+mood_table+"' (date, mood) VALUES (:dates, :mood)");
+        qry2.bindValue(":dates", clock_text);
+        qry2.bindValue(":mood", "Happy");
+        qry2.next();
+        qry2.exec();
+        }
+        else{
+            QMessageBox::information(this,"Message","Cannot enter two moods in a single day.",QMessageBox::Ok);
+        }
     }
-    else{
-        QMessageBox::information(this,"Message","fk u",QMessageBox::Ok);
+    else {
+        qry1.prepare("INSERT INTO '"+mood_table+"' (date, mood) VALUES (:dates, :mood)");
+        qry1.bindValue(":dates", clock_text);
+        qry1.bindValue(":mood", "Happy");
+        qry1.next();
+        qry1.exec();
     }
     on_MoodTrackerButton_clicked();
     showmood_moodtracker();
@@ -411,36 +543,95 @@ void homescreen::on_HappyButton_clicked()
 
 void homescreen::on_CalmButton_clicked()
 {
+    showmood_moodtracker();
+    int count;
+    QSqlQuery qry,qry1,qry2,qry3;
+
     QString mood_table = current_user + "_mood";
-    QSqlQuery qry1;
+    QString current_date, last_date;
+    QStringList lastdatelist;
+
     QDateTime clock = QDateTime::currentDateTime();
     QString clock_text=clock.toString("ddd dd MM yyyy h m ss ap");
-    qry1.prepare("INSERT INTO '"+mood_table+"' (date, mood) "
-                 "VALUES (:dates, :mood)");
-    qry1.bindValue(":dates", clock_text);
-    qry1.bindValue(":mood", "Calm");
-    qry1.exec();
+    current_date = clock.toString("ddMMyyyy");
+
+    qry.prepare("select count(*) from '"+mood_table+"'");
+    qry.exec();
+    qry.next();
+    count = qry.value(0).toInt();
+
+    if (count!=0){
+        int off = count - 1;
+        qry3.prepare("SELECT * FROM '"+mood_table+"' LIMIT 1 OFFSET :offsetvalue");
+        qry3.bindValue(":offsetvalue",off);
+        qry3.exec();
+        qry3.next();
+
+        lastdatelist =  qry3.value(0).toString().split(" ").mid(1,3);
+        last_date = lastdatelist[0] + lastdatelist[1] + lastdatelist[2];
+
+        if (current_date != last_date){
+        qry2.prepare("INSERT INTO '"+mood_table+"' (date, mood) VALUES (:dates, :mood)");
+        qry2.bindValue(":dates", clock_text);
+        qry2.bindValue(":mood", "Calm");
+        qry2.next();
+        qry2.exec();
+        }
+
+        else{
+            QMessageBox::information(this,"Message","Cannot enter two moods in a single day.",QMessageBox::Ok);
+        }
+    }
+
+    else {
+        qry1.prepare("INSERT INTO '"+mood_table+"' (date, mood) VALUES (:dates, :mood)");
+        qry1.bindValue(":dates", clock_text);
+        qry1.bindValue(":mood", "Calm");
+        qry1.next();
+        qry1.exec();
+    }
     on_MoodTrackerButton_clicked();
+    showmood_moodtracker();
+
 }
 
 void homescreen :: showmood_dashboard(){
     showmood_moodtracker();
-    QSqlQuery qry;
+    QSqlQuery qry,qry1;
     QString mood_table = current_user + "_mood";
+
+    qry1.prepare("select count(*) from '"+mood_table+"'");
+    qry1.exec();
+    qry1.first();
+    int noofrows = qry1.value(0).toInt();
+
+    int offset = noofrows - 7;
+
     int happy,sad,calm,angry;
-    qry.prepare("select count(*) from '"+mood_table+"' where mood = 'Happy'");
+    qDebug() << noofrows << offset;
+
+    qry.prepare("select count(*) from (select * from '"+mood_table+"' limit 7 offset :offsetvalue) where mood = 'Happy'");
+    qry.bindValue(":offsetvalue", offset);
     qry.exec();
     qry.next();
     happy = qry.value(0).toInt();
-    qry.prepare("select count(*) from '"+mood_table+"' where mood = 'Sad'");
+    qDebug() << happy;
+
+    qry.prepare("select count(*) from (select * from '"+mood_table+"' limit 7 offset :offsetvalue) where mood = 'Sad'");
+    qry.bindValue(":offsetvalue", offset);
     qry.exec();
     qry.next();
     sad = qry.value(0).toInt();
-    qry.prepare("select count(*) from '"+mood_table+"' where mood = 'Calm'");
+    qDebug() << sad;
+
+    qry.prepare("select count(*) from (select * from '"+mood_table+"' limit 7 offset :offsetvalue) where mood = 'Calm'");
+    qry.bindValue(":offsetvalue", offset);
     qry.exec();
     qry.next();
     calm = qry.value(0).toInt();
-    qry.prepare("select count(*) from '"+mood_table+"' where mood = 'Angry'");
+
+    qry.prepare("select count(*) from (select * from '"+mood_table+"' limit 7 offset :offsetvalue) where mood = 'Angry'");
+    qry.bindValue(":offsetvalue", offset);
     qry.exec();
     qry.next();
     angry = qry.value(0).toInt();
@@ -464,7 +655,12 @@ void homescreen :: showmood_dashboard(){
     QChart *chart = new QChart();
     chart -> addSeries(series);
     chart-> setTitle("Mood frequency");
+
     chart -> setAnimationOptions(QChart::SeriesAnimations);
+    chart -> setPlotArea(QRectF(40,40,550,130));
+     chart->setMargins(QMargins(0, 0, 0, 0));
+    chart->legend()->setVisible(false);
+
 
     QStringList categories;
     categories << "Happy" << "Sad" << "Calm" << "Angry";
@@ -486,12 +682,20 @@ void homescreen::on_GoalsSubmitButton_clicked()
     QString goal = ui -> GoalEnterArea -> text();
     QDateTime clock = QDateTime::currentDateTime();
     QString clock_text=clock.toString("ddd dd MM yyyy h m ss ap");
+
+    if (goal.isEmpty()) {
+        QMessageBox::information (this,"Message","Please enter value to submit.");
+    }
+
+    else {
     qry1.prepare("INSERT INTO '"+goal_table+"' (date, type, goal) "
                  "VALUES (:dates, :types, :goals)");
     qry1.bindValue(":dates", clock_text);
     qry1.bindValue(":types", type);
     qry1.bindValue(":goals", goal);
     qry1.exec();
+    }
+    ui ->GoalEnterArea -> setText("");
     on_GoalsButton_clicked();
 }
 
@@ -546,30 +750,127 @@ void homescreen::on_DailyGoalsTable_doubleClicked(const QModelIndex &index)
 
 void homescreen::on_SadButton_clicked()
 {
+    showmood_moodtracker();
+    int count;
+    QSqlQuery qry,qry1,qry2,qry3;
+
     QString mood_table = current_user + "_mood";
-    QSqlQuery qry1;
+    QString current_date, last_date;
+    QStringList lastdatelist;
+
     QDateTime clock = QDateTime::currentDateTime();
     QString clock_text=clock.toString("ddd dd MM yyyy h m ss ap");
-    qry1.prepare("INSERT INTO '"+mood_table+"' (date, mood) "
-                 "VALUES (:dates, :mood)");
-    qry1.bindValue(":dates", clock_text);
-    qry1.bindValue(":mood", "Sad");
-    qry1.exec();
+    current_date = clock.toString("ddMMyyyy");
+
+    qry.prepare("select count(*) from '"+mood_table+"'");
+    qry.exec();
+    qry.next();
+    count = qry.value(0).toInt();
+
+    if (count!=0){
+        int off = count - 1;
+        qry3.prepare("SELECT * FROM '"+mood_table+"' LIMIT 1 OFFSET :offsetvalue");
+        qry3.bindValue(":offsetvalue",off);
+        qry3.exec();
+        qry3.next();
+
+        lastdatelist =  qry3.value(0).toString().split(" ").mid(1,3);
+        last_date = lastdatelist[0] + lastdatelist[1] + lastdatelist[2];
+
+        if (current_date != last_date){
+        qry2.prepare("INSERT INTO '"+mood_table+"' (date, mood) VALUES (:dates, :mood)");
+        qry2.bindValue(":dates", clock_text);
+        qry2.bindValue(":mood", "Sad");
+        qry2.next();
+        qry2.exec();
+        }
+        else{
+            QMessageBox::information(this,"Message","Cannot enter two moods in a single day.",QMessageBox::Ok);
+        }
+    }
+    else {
+        qry1.prepare("INSERT INTO '"+mood_table+"' (date, mood) VALUES (:dates, :mood)");
+        qry1.bindValue(":dates", clock_text);
+        qry1.bindValue(":mood", "Sad");
+        qry1.next();
+        qry1.exec();
+    }
     on_MoodTrackerButton_clicked();
+    showmood_moodtracker();
 }
 
 
 void homescreen::on_AngryButton_clicked()
 {
+    showmood_moodtracker();
+    int count;
+    QSqlQuery qry,qry1,qry2,qry3;
+
     QString mood_table = current_user + "_mood";
-    QSqlQuery qry1;
+    QString current_date, last_date;
+    QStringList lastdatelist;
+
     QDateTime clock = QDateTime::currentDateTime();
     QString clock_text=clock.toString("ddd dd MM yyyy h m ss ap");
-    qry1.prepare("INSERT INTO '"+mood_table+"' (date, mood) "
-                 "VALUES (:dates, :mood)");
-    qry1.bindValue(":dates", clock_text);
-    qry1.bindValue(":mood", "Angry");
-    qry1.exec();
+    current_date = clock.toString("ddMMyyyy");
+
+    qry.prepare("select count(*) from '"+mood_table+"'");
+    qry.exec();
+    qry.next();
+    count = qry.value(0).toInt();
+
+    if (count!=0){
+        int off = count - 1;
+        qry3.prepare("SELECT * FROM '"+mood_table+"' LIMIT 1 OFFSET :offsetvalue");
+        qry3.bindValue(":offsetvalue",off);
+        qry3.exec();
+        qry3.next();
+
+        lastdatelist =  qry3.value(0).toString().split(" ").mid(1,3);
+        last_date = lastdatelist[0] + lastdatelist[1] + lastdatelist[2];
+
+        if (current_date != last_date){
+        qry2.prepare("INSERT INTO '"+mood_table+"' (date, mood) VALUES (:dates, :mood)");
+        qry2.bindValue(":dates", clock_text);
+        qry2.bindValue(":mood", "Angry");
+        qry2.next();
+        qry2.exec();
+        }
+        else{
+            QMessageBox::information(this,"Message","Cannot enter two moods in a single day.",QMessageBox::Ok);
+        }
+    }
+    else {
+        qry1.prepare("INSERT INTO '"+mood_table+"' (date, mood) VALUES (:dates, :mood)");
+        qry1.bindValue(":dates", clock_text);
+        qry1.bindValue(":mood", "Angry");
+        qry1.next();
+        qry1.exec();
+    }
     on_MoodTrackerButton_clicked();
+    showmood_moodtracker();
+
+}
+
+
+void homescreen::on_LogoutButton_clicked()
+{
+
+    QMessageBox::StandardButton reply= QMessageBox::question(this,"Message","Do you want to log out?",QMessageBox::Yes | QMessageBox::No);
+    if (reply == QMessageBox::Yes){
+        this -> hide();
+        MainWindow *mw;
+        mw = new MainWindow();
+        mw -> show();
+        QSqlQuery final;
+        final.prepare("delete from current_user");
+        final.exec();
+    }
+}
+
+void homescreen::on_testbutton_clicked()
+{
+    QString testlink="https://screening.mhanational.org/screening-tools/";
+    QDesktopServices::openUrl(QUrl(testlink));
 }
 
